@@ -4,6 +4,7 @@ int sHeight = 600;
 ArrayList grids;
 boolean isLoad = false;
 color bColor = color( 0 );
+int actualFrameRate = 24;
 
 int x = 0;
 int y = 0;
@@ -12,6 +13,8 @@ int y = 0;
 void setup() 
 {
 	size( sWidth, sHeight );
+	
+	frameRate( actualFrameRate );
 
 	smooth();
 	
@@ -69,6 +72,17 @@ void mouseDragged()
 	}
 }
 
+void mousePressed() 
+{
+	if( isLoad && grids != null && grids.size() > 0 )
+	{
+		for( int i = 0 ; i < grids.size() ; i++ )
+		{
+			grids.get( i ).trigger( "mousepressed" );
+		}
+	}
+}
+
 void mouseReleased() 
 {
 	if( isLoad && grids != null && grids.size() > 0 )
@@ -90,6 +104,17 @@ void keyPressed()
 		for( int i = 0 ; i < grids.size() ; i++ )
 		{
 			grids.get( i ).trigger( "keypressed" );
+		}
+	}	
+}
+
+void keyReleased()
+{
+	if( isLoad && grids != null && grids.size() > 0 )
+	{
+		for( int i = 0 ; i < grids.size() ; i++ )
+		{
+			grids.get( i ).trigger( "keyreleased" );
 		}
 	}	
 }
@@ -308,16 +333,36 @@ class Dimensions
 /*** Class XImage, encapsula la funcionalidad de las imagenes ***/
 class XImage
 {
-	PImage xImage;
+	final static int TIME_TO_RESIZE = 100;
 	
-	XImage( String _url )
+	PImage xImage;
+	String src;
+	
+	float lastWidth;
+	float lastHeight;
+	
+	int imageResized = 0;
+	
+	XImage( String _src )
 	{
-		 xImage = loadImage( _url );
+		 this.xImage = requestImage( _src );
+		 
+		 this.src = _src;
 	}
 	
 	PImage getXImage()
 	{
-		return xImage;	
+		return this.xImage;	
+	}
+	
+	String getSrc()
+	{
+		return this.src;	
+	}
+	
+	void setSrc( String _src )
+	{
+		this.xImage = requestImage( _src );
 	}
 	
 	void display( float _x, float _y, float _width, float _height )
@@ -326,13 +371,34 @@ class XImage
 		
 			return;
 		
-		if( this.xImage.width != _width || this.xImage.height != _height )
+		boolean _show = true;
+
+		if( this.lastWidth != width || this.lastHeight != height )
+		{
+			float _framesToResize = ( XImage.TIME_TO_RESIZE * actualFrameRate ) / 1000;
+			
+			if( this.imageResized > _framesToResize )
+			{
+				this.lastWidth = width;
+				this.lastHeight = height;
+				this.xImage.resize( _width, _height );
+				
+				_show = true;	
+			}
+			else
+			{
+				_show = false;
+			}
+			
+			this.imageResized++;
+		}
 		
-			this.xImage.resize( _width, _height );
-		
-		noFill();
-		noStroke();
-		image( this.xImage, _x, _y );
+		if( _show )
+		{
+			noFill();
+			noStroke();
+			image( this.xImage, _x, _y );
+		}
 	}
 	
 	void display( Sprite _sprite )
@@ -378,37 +444,69 @@ class XImage
 /*** Class Gradient, encapsula la funcionalidad de un degradado ***/
 class Gradient
 {
-	int Y_AXIS = 1;
+	static final int Y_AXIS = 1;
 
-	int X_AXIS = 2;
+	static final int X_AXIS = 2;
 	
-	int LINEAR = 1;
+	static final int LINEAR = 1;
 	
-	int RADIAL = 2;
+	static final int RADIAL = 2;
 
 	XObject container;
 	
-	color bColor;
 	ArrayList gColor;
 	
 	int axis;
-	int type;
+	int gType;
 	
-	Gradient( XObject _container, color _bColor, ArrayList _gColor, int _axis, int _type )
+	Gradient( XObject _container, ArrayList _gColor, int _axis, int _gType )
 	{
 		this.container = _container;
 		
-		this.bColor = _bColor;
 		this.gColor = _gColor;
 		this.axis = _axis;
-		this.type = _type;
+		this.gType = _gType;
+	}
+	
+	ArrayList getGColor()
+	{
+		return this.gColor;	
+	}
+	
+	int getAxis()
+	{
+		return this.axis;	
+	}
+	
+	int getGType()
+	{
+		return this.gType;	
+	}
+	
+	void setGColor( ArrayList _gColor )
+	{
+		this.gColor = _gColor;	
+	}
+	
+	void setAxis( int _axis )
+	{
+		this.axis = _axis;	
+	}
+	
+	void setGType( int _gType )
+	{
+		this.gType = _gType;	
 	}
 	
 	void display()
 	{
-		if( this.type == null )
+		if( this.gType == null )
 		
-			this.type = this.LINEAR;
+			this.gType = Gradient.LINEAR;
+			
+		if( this.axis == null )
+		
+			this.axis = Gradient.Y_AXIS;
 			
 		float _x = this.container.initialPoint.getX();
 		float _y = this.container.initialPoint.getY();
@@ -420,13 +518,13 @@ class Gradient
 		
 		var _grd = null;
 		
-		if( this.type == this.LINEAR )
+		if( this.gType == Gradient.LINEAR )
 		{
 			if( this.container instanceof Triangle )
 			{
 				_grd = _ctx.createLinearGradient( this.container.getLeftPoint().getX(), this.container.getCenter().getY(), this.container.getRightPoint().getX(), this.container.getCenter().getY() );
 				
-				if( this.axis == this.Y_AXIS )
+				if( this.axis == Gradient.Y_AXIS )
 			
 					_grd = _ctx.createLinearGradient( this.container.getCenter().getX(), this.container.getTopPoint().getY(), this.container.getCenter().getX(), this.container.getBottomPoint().getY() );
 			}
@@ -434,7 +532,7 @@ class Gradient
 			{
 				_grd = _ctx.createLinearGradient( ( _x - ( _width / 2 ) ), _y, ( _x + ( _width / 2 ) ), _y );
 			
-				if( this.axis == this.Y_AXIS )
+				if( this.axis == Gradient.Y_AXIS )
 			
 					_grd = _ctx.createLinearGradient( _x, ( _y - ( _height / 2 ) ), _x, ( _y + ( _height / 2 ) ) );
 			}
@@ -442,7 +540,7 @@ class Gradient
 			{
 				_grd = _ctx.createLinearGradient( _x, _y, ( _x + _width ), _y );
 			
-				if( this.axis == this.Y_AXIS )
+				if( this.axis == Gradient.Y_AXIS )
 			
 					_grd = _ctx.createLinearGradient( _x, _y, _x, ( _y + _height ) );
 			}
@@ -509,7 +607,7 @@ class Gradient
 			}
 		}
 		
-		_grd.addColorStop( 0, "rgba("+ red( this.bColor )+","+ green( this.bColor )+","+ blue( this.bColor )+","+ alpha( this.bColor ) +" )" );
+		_grd.addColorStop( 0, "rgba("+ red( this.container.getBColor() )+","+ green( this.container.getBColor() )+","+ blue( this.container.getBColor() )+","+ alpha( this.container.getBColor() ) +" )" );
 		
 		float _stopSize = ( 1 / ( this.gColor.size() ) );
 		
@@ -640,12 +738,16 @@ class XObject
 	ArrayList mouseout;
 	ArrayList mousedragged;
 	ArrayList mousedraggedoff;
+	ArrayList mousepressed;
 	ArrayList mousereleased;
 	ArrayList keypressed;
+	ArrayList keyreleased;
 	ArrayList frame;
 	ArrayList load;
 	ArrayList ehide;
 	ArrayList eshow;
+	ArrayList efocus;
+	ArrayList eblur;
 	/*** Fin eventos ***/
 	
 	color fColor;
@@ -655,6 +757,8 @@ class XObject
 	
 	boolean lockMouseOn;
 	boolean lockMouseDragged;
+	boolean lockMousePressed;
+	boolean lockKeyPressed;
 	
 	Dimensions dimensions;
 	
@@ -664,9 +768,15 @@ class XObject
 	
 	float stepX;
 	float stepY;
+	boolean noiseMove;
+	int framesToMove;
+	int lastFramesToMove;
 	
 	boolean visible;
 	boolean xFocus;
+	
+	/*** Array que contendra las teclas pulsadas ***/
+	ArrayList pressedKeys;
 	
 	HashMap stateVariables;
 	
@@ -683,12 +793,16 @@ class XObject
 		this.mouseout = new ArrayList();
 		this.mousedragged = new ArrayList();
 		this.mousedraggedoff = new ArrayList();
+		this.mousepressed = new ArrayList();
 		this.mousereleased = new ArrayList();
 		this.keypressed = new ArrayList();
+		this.keyreleased = new ArrayList();
 		this.frame = new ArrayList();
 		this.load = new ArrayList();
 		this.ehide = new ArrayList();
 		this.eshow = new ArrayList();
+		this.efocus = new ArrayList();
+		this.eblur = new ArrayList();
 		
 		this.initialPoint = new Point( _x, _y );
 		
@@ -699,6 +813,11 @@ class XObject
 		
 		this.stepX = 0;
 		this.stepY = 0;
+		
+		this.lastFramesToMove = null;
+		this.framesToMove = null;
+		
+		this.noiseMove = false;
 		
 		this.visible = true;
 		
@@ -715,12 +834,14 @@ class XObject
 		if( _urlXImage != null )
 		
 			this.xImage = new XImage( _urlXImage );
+			
+		this.pressedKeys = new ArrayList();
 		
 		this.stateVariables = new HashMap();
 		
 		if( _gColor != null && _bColor != null )
 		{
-			this.gradient = new Gradient( this, _bColor, _gColor, _axis, _gType );
+			this.gradient = new Gradient( this, _gColor, _axis, _gType );
 		}
 	}
 	
@@ -732,14 +853,59 @@ class XObject
 	
 	void display()
 	{
-		if( this.stepX != 0)
+		boolean _move = false;
+		
+		if( this.stepX != 0 || this.stepY != 0 )
 		{
-			this.initialPoint.setHorizontalMovement( this.initialPoint.horizontalMovement + this.stepX );
+			if( this.framesToMove == null )
+			{
+				_move = true;	
+			}
+			else
+			{
+				if( this.lastFramesToMove === null )
+				{
+					_move = true;
+					
+					this.lastFramesToMove = 0;
+				}
+				else
+				{
+					if( ( this.lastFramesToMove % this.framesToMove ) == 0 )
+					
+						_move = true;
+				}
+				
+				this.lastFramesToMove++;
+			}
+		}
+
+		if( this.stepX != 0 )
+		{
+			if( _move )
+			{
+				float _stepX = this.stepX;
+				
+				if( this.noiseMove )
+				
+					_stepX = noise( this.stepX ) * this.stepX;
+					
+				this.initialPoint.setHorizontalMovement( this.initialPoint.horizontalMovement + _stepX );
+			}
 		}
 		
-		if( this.stepY != 0)
+		if( this.stepY != 0 )
 		{
-			this.initialPoint.setVerticalMovement( this.initialPoint.verticalMovement + this.stepY );
+			if( _move )
+			{
+				float _stepY = this.stepY;
+				
+				if( this.noiseMove )
+				
+					_stepY = noise( this.stepY ) * this.stepY;
+					
+				this.initialPoint.setVerticalMovement( this.initialPoint.verticalMovement + _stepY );
+			}
 		}
 		
 		if( ! this.isHide() )
@@ -754,10 +920,23 @@ class XObject
 				}
 				else
 				{
-					this.xImage.display( this.initialPoint.getX(), this.initialPoint.getY(), this.dimensions.getXWidth(), this.dimensions.getXHeight() );
+					if( this instanceof Ellipse )
+					
+						this.xImage.display( ( this.initialPoint.getX() - ( this.dimensions.getXWidth() / 2 ) ), ( this.initialPoint.getY() - ( this.dimensions.getXHeight() / 2 ) ), this.dimensions.getXWidth(), this.dimensions.getXHeight() );
+					
+					else
+					
+						this.xImage.display( this.initialPoint.getX(), this.initialPoint.getY(), this.dimensions.getXWidth(), this.dimensions.getXHeight() );
 				}
 			}	
 		}
+	}
+	
+	void move( float _stepX, float _stepY, boolean _noise, int _framesToMove )
+	{
+		this.move( _stepX, _stepY );
+		this.noiseMove = _noise;
+		this.framesToMove = _framesToMove;
 	}
 	
 	void move( float _stepX, float _stepY )
@@ -771,13 +950,17 @@ class XObject
 			
 		if( this.stepY == null )
 		
-			this.stepY = 0;	
+			this.stepY = 0;
 	}
 	
 	void stop()
 	{
 		this.stopX();
 		this.stopY();
+		
+		this.lastFramesToMove = null;
+		this.framesToMove = null;
+		this.noiseMove = false;
 	}
 	
 	void stopX()
@@ -819,12 +1002,24 @@ class XObject
 	
 	void focus()
 	{
-		this.xFocus = true;	
+		if( this.isFocus() )
+		
+			return;
+			
+		this.xFocus = true;
+		
+		this.trigger( "focus" );	
 	}
 	
 	void blur()
 	{
-		this.xFocus = false;	
+		if( ! this.isFocus() )
+		
+			return;
+			
+		this.xFocus = false;
+		
+		this.trigger( "blur" );	
 	}
 	
 	void isFocus()
@@ -857,6 +1052,11 @@ class XObject
 		this.addEvent( _func, "mousedraggedoff" );
 	}
 	
+	void onMousePressed( String _func )
+	{
+		this.addEvent( _func, "mousepressed" );
+	}
+	
 	void onMouseReleased( String _func )
 	{
 		this.addEvent( _func, "mousereleased" );
@@ -865,6 +1065,11 @@ class XObject
 	void onKeyPressed( String _func )
 	{
 		this.addEvent( _func, "keypressed" );
+	}
+	
+	void onKeyReleased( String _func )
+	{
+		this.addEvent( _func, "keyreleased" );
 	}
 	
 	void onFrame( String _func )
@@ -887,6 +1092,16 @@ class XObject
 		this.addEvent( _func, "show" );
 	}
 	
+	void onFocus( String _func )
+	{
+		this.addEvent( _func, "focus" );
+	}
+	
+	void onBlur( String _func )
+	{
+		this.addEvent( _func, "blur" );
+	}
+	
 	void attachEvents( HashMap _events )
 	{
 		if( _events == null )
@@ -898,24 +1113,32 @@ class XObject
 		String _mouseout = _events[ "mouseout" ];
 		String _mousedragged = _events[ "mousedragged" ];
 		String _mousedraggedoff = _events[ "mousedraggedoff" ];
+		String _mousepressed = _events[ "mousepressed" ];
 		String _mousereleased = _events[ "mousereleased" ];
 		String _keypressed = _events[ "keypressed" ];
+		String _keyreleased = _events[ "keyreleased" ];
 		String _frame = _events[ "frame" ];
 		String _load = _events[ "load" ];
 		String _hide = _events[ "hide" ];
 		String _show = _events[ "show" ];
+		String _focus = _events[ "focus" ];
+		String _blur = _events[ "blur" ];
 		
 		this.onClick( _click );
 		this.onMouseOn( _mouseon );
 		this.onMouseOut( _mouseout );
 		this.onMouseDragged( _mousedragged );
 		this.onMouseDraggedOff( _mousedraggedoff );
+		this.onMousePressed( _mousepressed );
 		this.onMouseReleased( _mousereleased );
 		this.onKeyPressed( _keypressed );
+		this.onKeyReleased( _keyreleased );
 		this.onFrame( _frame );
 		this.onLoad( _load );
 		this.onHide( _hide );
 		this.onShow( _show );
+		this.onFocus( _focus );
+		this.onBlur( _blur );
 	}
 	
 	void clearEvents()
@@ -926,12 +1149,16 @@ class XObject
 		this.mouseout = new ArrayList();
 		this.mousedragged = new ArrayList();
 		this.mousedraggedoff = new ArrayList();
+		this.mousepressed = new ArrayList();
 		this.mousereleased = new ArrayList();
 		this.keypressed = new ArrayList();
+		this.keyreleased = new ArrayList();
 		this.frame = new ArrayList();
 		this.load = new ArrayList();
 		this.ehide = new ArrayList();
-		this.eshow = new ArrayList();	
+		this.eshow = new ArrayList();
+		this.efocus = new ArrayList();
+		this.eblur = new ArrayList();
 	}
 	
 	void addEvent( String _func, String _type )
@@ -970,6 +1197,10 @@ class XObject
 			
 				this.mousedraggedoff.add( _func );
 				
+			else if( _type == "mousepressed" )
+			
+				this.mousepressed.add( _func );
+				
 			else if( _type == "mousereleased" )
 			
 				this.mousereleased.add( _func );
@@ -977,6 +1208,10 @@ class XObject
 			else if( _type == "keypressed" )
 			
 				this.keypressed.add( _func );
+				
+			else if( _type == "keyreleased" )
+			
+				this.keyreleased.add( _func );
 				
 			else if( _type == "frame" )
 			
@@ -992,12 +1227,44 @@ class XObject
 				
 			else if( _type == "show" )
 			
-				this.eshow.add( _func );	
+				this.eshow.add( _func );
+				
+			else if( _type == "focus" )
+			
+				this.efocus.add( _func );
+				
+			else if( _type == "blur" )
+			
+				this.eblur.add( _func );
 		}
 		catch( _ex )
 		{
 			
 		}
+	}
+	
+	Object getStateVariable( String _key )
+	{
+		return this.stateVariables.get( _key );	
+	}
+	
+	void setStateVariable( String _key, Object _value )
+	{
+		this.stateVariables.put( _key, _value );	
+	}
+	
+	void removeStateVariable( String _key )
+	{
+		this.stateVariables.remove( _key );	
+	}
+	
+	String getSrcImage()
+	{
+		if( this.xImage == null )
+		
+			return null;
+			
+		return this.xImage.getSrc();	
 	}
 	
 	color getFColor()
@@ -1010,6 +1277,45 @@ class XObject
 		return this.bColor;	
 	}
 	
+	ArrayList getGColor()
+	{
+		if( this.gradient == null )
+		
+			return null;
+			
+		return this.gradient.getGColor(); 	
+	}
+	
+	int getAxis()
+	{
+		if( this.gradient == null )
+		
+			return null;
+			
+		return this.gradient.getAxis(); 	
+	}
+	
+	int getGType()
+	{
+		if( this.gradient == null )
+		
+			return null;
+			
+		return this.gradient.getGType(); 	
+	}
+	
+	String setSrcImage( String _src )
+	{
+		if( this.xImage == null )
+		{
+			this.xImage = new XImage( _src );
+		}
+		else
+		{	
+			this.xImage.setSrc( _src );
+		}	
+	}
+	
 	void setFColor( color _color )
 	{
 		this.fColor = _color;
@@ -1020,16 +1326,91 @@ class XObject
 		this.bColor = _color;
 	}
 	
-	void setGradient( Gradient _grad )
+	void setGColor( ArrayList _gColor )
 	{
-		this.gradient = _grad;
+		if( this.gradient == null )
 		
-		this.bColor = _grad.bColor;
+			return;
+			
+		this.gradient.setGColor( _gColor );	
+	}
+	
+	void setAxis( int _axis )
+	{
+		if( this.gradient == null )
+		
+			return;
+			
+		this.gradient.setAxis( _axis );		
+	}
+	
+	void setGType( int _gType )
+	{
+		if( this.gradient == null )
+		
+			return;
+			
+		this.gradient.setGType( _gType );		
+	}
+	
+	void setGradient( color _bColor, ArrayList _gColor, int _axis, int _gType )
+	{
+		if( _bColor == null || _gColor == null )
+		
+			return;
+		
+		this.bColor = _bColor;
+		
+		Gradient _grad = new Gradient( this, _gColor, _axis, _gType );
+		
+		this.gradient = _grad;
+	}
+	
+	void clearGradient()
+	{
+		this.gradient = null;	
+	}
+	
+	boolean isKeyInList( char _key )
+	{
+		for( int i = 0 ; i < this.pressedKeys.size() ; i++ )
+		{
+			if( this.pressedKeys.get( i ) == _key )
+			
+				return true;	
+		}
+		
+		return false;
+	}
+	
+	char getKeyPressed()
+	{
+		if( key == CODED )
+			
+			return keyCode;
+		
+		return key;		
+	}
+	
+	void removeKey( char _key )
+	{
+		for( int i = 0 ; i < this.pressedKeys.size() ; i++ )
+		{
+			if( this.pressedKeys.get( i ) == _key )
+			{
+				this.pressedKeys.remove( i );
+			}	
+		}
+	}
+	
+	ArrayList getPressedKeys()
+	{
+		return this.pressedKeys;	
 	}
 	
 	void trigger( String _type )
 	{
-		if( ( ( _type != "frame" && _type != "hide" && _type != "show" && _type != "load" ) && this.isHide() ) || ! this.isMouseOn( _type ) )
+		if( ( ( _type != "frame" && _type != "hide" && _type != "show" && _type != "focus" && _type != "blur" && _type != "load" ) && this.isHide() ) || ! this.isMouseOn( _type ) )
 		
 			return;
 		
@@ -1067,6 +1448,12 @@ class XObject
 			
 				_strEval += this.mousedraggedoff.get( i ) + "(this);";
 		}
+		else if( _type == "mousepressed" )
+		{
+			for( int i = 0 ; i < this.mousepressed.size() ; i++ )
+			
+				_strEval += this.mousepressed.get( i ) + "(this);";
+		}
 		else if( _type == "mousereleased" )
 		{
 			for( int i = 0 ; i < this.mousereleased.size() ; i++ )
@@ -1078,6 +1465,12 @@ class XObject
 			for( int i = 0 ; i < this.keypressed.size() ; i++ )
 			
 				_strEval += this.keypressed.get( i ) + "(this);";
+		}
+		else if( _type == "keyreleased" )
+		{
+			for( int i = 0 ; i < this.keyreleased.size() ; i++ )
+			
+				_strEval += this.keyreleased.get( i ) + "(this);";
 		}
 		else if( _type == "frame" )
 		{
@@ -1103,6 +1496,18 @@ class XObject
 			
 				_strEval += this.eshow.get( i ) + "(this);";
 		}
+		else if( _type == "focus" )
+		{
+			for( int i = 0 ; i < this.efocus.size() ; i++ )
+			
+				_strEval += this.efocus.get( i ) + "(this);";
+		}
+		else if( _type == "blur" )
+		{
+			for( int i = 0 ; i < this.eblur.size() ; i++ )
+			
+				_strEval += this.eblur.get( i ) + "(this);";
+		}
 		
 		
 		if( _strEval != null && ! _strEval.trim().equals( "" ) )
@@ -1120,20 +1525,43 @@ class XObject
 	
 	boolean isMouseOn( _type )
 	{
-		if( _type == "frame" || _type == "load" || _type == "show" || _type == "hide" )
+		if( _type == "frame" || _type == "load" || _type == "show" || _type == "hide" || _type == "focus" || _type == "blur" )
 		
 			return true;
 			
 		if( this.isHide() )
 		
 			return false;
+		
+		if( this instanceof Text || this instanceof Line )
+		{
+			if( _type == "mouseon" || _type == "mouseout" || _type == "mousedragged" || _type == "mousedraggedoff" || _type == "click" || _type == "mousepressed" || _type == "mousereleased" || _type == "keypressed" || _type == "keyreleased" )
 			
-		if( _type == "keypressed" )
+				return false;	
+		}
+			
+		if( _type == "keypressed" || _type == "keyreleased" )
 		{
 			if( this.xFocus )
-			
-				return true;
+			{
+				char _key = this.getKeyPressed();
 				
+				if( _type == "keypressed" )
+				{	
+					if( this.isKeyInList( _key ) )
+					
+						return false;
+					
+					this.pressedKeys.add( _key );
+					
+					return true;	
+				}
+				
+				this.removeKey( _key );
+				
+				return true;
+			}
+			
 			return false;
 		}
 			
@@ -1176,12 +1604,22 @@ class XObject
 		if( ( ( mouseX > _x && ( mouseX < ( _x + _width ) ) && mouseY > _y && ( mouseY < ( _y + _height ) ) ) && ! ( this instanceof Line ) && ! ( this instanceof Ellipse ) && ! ( this instanceof Triangle ) ) || _isOverLine || _isOverEllipse || _isOverTriangle )
 		{
 			if( _type == "click" || _type == "mousereleased" )
-			{
-				if( _type == "click" )
+			{ 
+				if( _type == "mousereleased" && this.lockMousePressed )
+				{
+					this.lockMousePressed = false;
 					
-					this.focus = true;
-					 
-				return true;
+					return true;
+				}
+					
+				if( _type == "click" )
+				{
+					//this.xFocus = true;
+					
+					return true;
+				}
+					
+				return false;
 			}
 				
 			if( _type == "mouseon" )
@@ -1207,12 +1645,22 @@ class XObject
 					return true;
 				}
 			}
+			
+			if( _type == "mousepressed" )
+			{
+				if( ! this.lockMousePressed )
+				{
+					this.lockMousePressed = true;
+					
+					return true;	
+				}
+			}
 		}
 		else
 		{
-			if( _type == "click" )
+			/*if( _type == "click" )
 					
-				this.focus = false;
+				this.xFocus = false;*/
 					
 			if( _type == "mouseout" )
 			{
@@ -1231,6 +1679,16 @@ class XObject
 				if( this.lockMouseDragged )
 				
 					return true;
+			}
+			
+			if( _type == "mousereleased" )
+			{
+				if( this.lockMousePressed )
+				{
+					this.lockMousePressed = false;
+					
+					return true;
+				}
 			}
 		}
 		
@@ -1265,15 +1723,27 @@ class Grid extends XObject
 {
 	ArrayList xObjects;
 	
-	Grid( String _id, String _className, color _bColor, ArrayList _gColor, int _axis, int _gType, String _urlXImage, boolean _visible )
+	Grid( String _id, String _className, color _bColor, ArrayList _gColor, int _axis, int _gType, String _urlXImage, boolean _visible, boolean _focus )
 	{
-		super( _id, _className, 0, 0, 100, 100, null, _bColor, _gColor, _axis, _gType, _urlXImage, _visible, null );
+		super( _id, _className, 0, 0, 100, 100, null, _bColor, _gColor, _axis, _gType, _urlXImage, _visible, _focus );
 		
 		this.xObjects = new ArrayList();
 	}
 	
 	void putXObject( XObject _obj )
 	{
+		for( int i = 0 ; i < this.xObjects.size() ; i++ )
+		{
+			XObject _xObject = ( XObject )this.xObjects.get( i );
+			
+			if( _xObject.id == _obj.id )
+			{
+				this.xObjects.set( i, _obj );
+				
+				return;
+			}
+		}
+		
 		this.xObjects.add( _obj );
 	}
 	
@@ -1300,6 +1770,23 @@ class Grid extends XObject
 			if( _xObject.id == _id )
 			{
 				this.xObjects.remove( i );
+				
+				return;
+			}
+		}
+	}
+	
+	void removeXObject( XObject _obj )
+	{
+		for( int i = 0 ; i < this.xObjects.size() ; i++ ) 
+		{
+			XObject _xObject = ( XObject )this.xObjects.get( i );
+			
+			if( _xObject.id == _obj.id )
+			{
+				this.xObjects.remove( i );
+				
+				return;
 			}
 		}
 	}
@@ -1408,9 +1895,9 @@ class Text extends XObject
 	float vAlign;
 	float xSize;
 	
-	Text( String _text, String _type, float _size, float _hAlign, float _vAlign, String _id, String _className, float _x, float _y, float _xWidth, float _xHeight, color _fColor, String _urlXImage, boolean _visible, boolean _focus )
+	Text( String _text, String _type, float _size, float _hAlign, float _vAlign, String _id, String _className, float _x, float _y, float _xWidth, float _xHeight, color _fColor, boolean _visible, boolean _focus )
 	{
-		super( _id, _className, _x, _y, _xWidth, _xHeight, _fColor, null, null, null, null, _urlXImage, _visible, _focus );
+		super( _id, _className, _x, _y, _xWidth, _xHeight, _fColor, null, null, null, null, null, _visible, _focus );
 		
 		this.xText = _text;
 		
@@ -1419,6 +1906,39 @@ class Text extends XObject
 		this.vAlign = _vAlign;
 		
 		this.xSize = _size;
+		
+		this.font = loadFont( _type );
+	}
+	
+	String getString()
+	{
+		return this.xText;
+	}
+	
+	void setString( String _str )
+	{
+		this.xText = _str;	
+	}
+	
+	PFont getFont()
+	{
+		return this.font;
+	}
+	
+	void setFont( String _type, String _url )
+	{
+		if( _url != null )
+		{
+			var _fonts = [
+			
+				{
+					"type" : _type,
+					"url" : _url	
+				}
+			];
+			
+			jsXml2Processing.util.preloadFonts( _fonts, null );	
+		}
 		
 		this.font = loadFont( _type );
 	}
@@ -1447,12 +1967,36 @@ class Text extends XObject
 class Line extends XObject
 {
 	float weight;
+	float point2;
 	
-	Line( float _weight, String _id, String _className, float _x, float _y, float _xWidth, float _xHeight, color _fColor, String _urlXImage, boolean _visible, boolean _focus )
+	Line( float _x2, float _y2, float _weight, String _id, String _className, float _x, float _y, color _fColor, boolean _visible, boolean _focus )
 	{
-		super( _id, _className, _x, _y, _xWidth, _xHeight, _fColor, null, null, null, null, _urlXImage, _visible, _focus );
+		super( _id, _className, _x, _y, 0, 0, _fColor, null, null, null, null, null, _visible, _focus );
 		
 		this.weight = _weight;
+		this.point2 = new Point( _x2, _y2 );
+	}
+	
+	void setInitialPoint( float _x, float _y )
+	{
+		this.initialPoint.setX( _x );
+		this.initialPoint.setY( _y );	
+	}
+	
+	void setFinalPoint( float _x, float _y )
+	{
+		this.point2.setX( _x );
+		this.point2.setY( _y );	
+	}
+	
+	void setWeight( float _weight )
+	{
+		this.weight = _weight;	
+	}
+	
+	float getWeight()
+	{
+		return this.weight;	
 	}
 	
 	void display()
@@ -1465,38 +2009,24 @@ class Line extends XObject
 		
 		float _weight = ( height * this.weight ) / 100;
 		
+		if( width < height )
+		
+			_weight = ( width * this.weight ) / 100;
+		
 		stroke( this.fColor );
 		
 		strokeWeight( _weight );
 		
 		float _x = this.initialPoint.getX();
 		float _y = this.initialPoint.getY();
-		float _fX = this.initialPoint.getX() + this.dimensions.getXWidth();
-		float _fY = this.initialPoint.getY() + this.dimensions.getXHeight();
+		float _fX = this.point2.getX();
+		float _fY = this.point2.getY();
 		
 		line( _x, _y, _fX, _fY );
 	}
 	
 	boolean mouseIsOverLine() 
-	{
-		float _weight = ( height * this.weight ) / 100;
-		
-		float _x = this.initialPoint.getX();
-		float _y = this.initialPoint.getY();
-		float _fX = this.initialPoint.getX() + this.dimensions.getXWidth();
-		float _fY = this.initialPoint.getY() + this.dimensions.getXHeight();
-		
-		float _d = dist( _x, _y, _fX, _fY );
-		
-		float _d1 = dist( _x, _y, mouseX, mouseY );
-		
-		float _d2 = dist( _fX, _fY, mouseX, mouseY );
-
-		// distance between vertices must be similar to sum of distances from each vertex to mouse
-		if( _d1 + _d2 < _d + ( _weight / 20 ) )
-		
-			return true;
-		
+	{	
 		return false;
 	}
 }
@@ -1521,6 +2051,72 @@ class Panel extends XObject
 		this.trradius = _trradius;
 		this.blradius = _blradius;
 		this.brradius = _brradius;
+	}
+	
+	void setWeight( float _weight )
+	{
+		this.weight = _weight;	
+	}
+	
+	float getWeight()
+	{
+		return this.weight;	
+	}
+	
+	void removeBorder()
+	{
+		this.weight = null;
+		this.fColor = null;	
+	}
+	
+	void setRadius( float _radius )
+	{
+		this.radius = _radius;
+	}
+	
+	float getRadius()
+	{
+		return this.radius;	
+	}
+	
+	void setTlRadius( float _tlradius )
+	{
+		this.tlradius = _tlradius;	
+	}
+	
+	float getTlRadius()
+	{
+		return this.tlradius;
+	}
+	
+	void setTrRadius( float _trradius )
+	{
+		this.trradius = _trradius;	
+	}
+	
+	float getTrRadius()
+	{
+		return this.trradius;
+	}
+	
+	void setBlRadius( float _blradius )
+	{
+		this.blradius = _blradius;	
+	}
+	
+	float getBlRadius()
+	{
+		return this.blradius;
+	}
+	
+	void setBrRadius( float _brradius )
+	{
+		this.brradius = _brradius;	
+	}
+	
+	float getBrRadius()
+	{
+		return this.brradius;
 	}
 	
 	void display()
@@ -1804,6 +2400,21 @@ class Sprite extends XObject
 	{
 		return this.xImage.getCroppedImage( this.srcDimensions, this.srcInitialPoint, this.dimensions );
 	}
+	
+	void setVisibleArea( float _srcX, float _srcY, float _srcWidth, float _srcHeight )
+	{
+		this.srcInitialPoint.setX( _srcX );
+		this.srcInitialPoint.setY( _srcY );
+		
+		this.srcDimensions.setXWidth( _srcWidth );
+		this.srcDimensions.setXHeight( _srcHeight );
+	}
+	
+	void setVisibleArea( float _srcX, float _srcY )
+	{
+		this.srcInitialPoint.setX( _srcX );
+		this.srcInitialPoint.setY( _srcY );
+	}
 }
 
 /*** Parte javascript ***/
@@ -1812,6 +2423,8 @@ jsXml2Processing = {
 	
 	config : null,
 	localConfig : null,
+	chargedFonts : {},
+	loadedImages : [],
 	
 	init : function()
 	{
@@ -1851,16 +2464,37 @@ jsXml2Processing = {
 			
 		var _config = jsXml2Processing.parseAttrsConfig( _node );
 		
+		var _width = sWidth;
+		var _height = sHeight;
+		
 		for( var i in _config )
 		{
 			if( _config[ i ] == null )
 			
 				continue;
+			
+			if( i == "width" )
+			{
+				_width = _config[ i ];
 				
+				continue;	
+			}
+			
+			if( i == "height" )
+			{
+				_height = _config[ i ];
+				
+				continue;	
+			}
+			
 			if( typeof( jsXml2Processing.actionsConfig[ i ] ) == "function" )
 			
 				jsXml2Processing.actionsConfig[ i ]( _config );
 		}
+		
+		if( _width != sWidth || _height != sHeight )
+		
+			jsXml2Processing.util.changeWidthAndHeight( _width, _height );
 	},
 	
 	actionsConfig : {
@@ -1868,11 +2502,11 @@ jsXml2Processing = {
 		"fullpage" : function( _config )
 		{
 			setTimeout( function() {
-				jsXml2Processing.util.fullPage( jsXml2Processing.config.id );
+				jsXml2Processing.util.fullPage();
 				
 				$( window ).resize(
 					function(){
-						jsXml2Processing.util.fullPage( jsXml2Processing.config.id );
+						jsXml2Processing.util.fullPage();
 					}
 				);
 				
@@ -1882,9 +2516,10 @@ jsXml2Processing = {
 		"frameRate" : function( _config )
 		{	
 			frameRate( _config[ "frameRate" ] );
+			actualFrameRate = _config[ "frameRate" ];
 		},
 		
-		bColor : function( _config )
+		"bColor" : function( _config )
 		{
 			var _bColor = _config[ "bColor" ];
 			
@@ -1914,6 +2549,14 @@ jsXml2Processing = {
 			{
 				tag : "bColor",
 				type : "color"	
+			},
+			{
+				tag : "width",
+				type : "int"	
+			},
+			{
+				tag : "height",
+				type : "int"	
 			} ];
 		
 		return jsXml2Processing.getAttrs( _node, _keys );
@@ -2010,7 +2653,7 @@ jsXml2Processing = {
 					
 					var _attrs = jsXml2Processing.parseGenericAttrs( $( _value ).children( "attributes" )[ 0 ] );
 					
-					Grid _grid = new Grid( _attrs.id, _attrs.className, _attrs.bColor, _attrs.gColor, _attrs.axis, _attrs.gType, _attrs.image, _attrs.visible );
+					Grid _grid = new Grid( _attrs.id, _attrs.className, _attrs.bColor, _attrs.gColor, _attrs.axis, _attrs.gType, _attrs.image, _attrs.visible, _attrs.focus );
 					
 					$( _value ).children().each( function( _keyObj, _valueObj ) {
 					
@@ -2049,34 +2692,79 @@ jsXml2Processing = {
 				}
 			};
 			
-			
+			var _func3 = function()
+			{
+				if( $( _xml ).find( "font" ).length > 0 )
+				{
+					var _fonts = [];
+					
+					$( _xml ).find( "font" ).each( function( _key, _value ) {
+						
+						var _type = $.trim( $( _value ).parent().children( "type" ).text() );
+						
+						var _url = $.trim( $( _value ).text() );
+						
+						var _font = {
+							"url" : _url,
+							"type" : _type	
+						};
+						
+						_fonts.push( _font );
+							
+					} );
+					
+					jsXml2Processing.util.preloadFonts( _fonts, _func );
+				}
+				else
+				{
+					_func();	
+				}	
+			};
 			
 			var _func2 = function() {
 			
 				if( $( _xml ).find( "image" ).length > 0 )
 				{
+					var _images = [];
+					
 					$( _xml ).find( "image" ).each( function( _key, _value ) {
 						
 						var _src = $.trim( $( _value ).text() );
-						
-						if( _src )
-						
-							jsXml2Processing.util.preloadImg( _src );
+
+						_images.push( _src );
 							
 					} );
 					
-					_func();
+					jsXml2Processing.util.preloadImages( _images, _func3 );
 				}
 				else
 				{
-					_func();	
+					_func3();	
 				}
 			
 			};
 			
 			jsXml2Processing.loadScripts( _xml, _func2 );
 			
-		}, "xml");
+		}, "xml").fail( function( _jqxhr, _settings, _exception ) 
+		{
+			try
+			{
+				console.log( _exception );
+			}
+			catch( _ex ){}
+			
+			Grid _grid = new Grid( "xml2ProcessingErrorXmlLoad", null, color( 0 ), null, null, null, null, null, null );
+			
+			Text _text = new Text( "Error loading xml", "courier", 5, 1, 1, "xml2ProcessingErrorTextXmlLoad", null, 10, 10, 80, 40, color( 255 ), null, null );
+			
+			_grid.putXObject( _text );
+			
+			grids.add( _grid );
+			
+			isLoad = true; 
+			
+		} );
 	},
 	
 	parseObject : function( _node )
@@ -2100,7 +2788,7 @@ jsXml2Processing = {
 				_attrs[ i ] = _tmp[ i ];
 			}
 			
-			Text _text = new Text( _attrs.string, _attrs.type, _attrs.size, _attrs.hAlign, _attrs.vAlign, _attrs.id, _attrs.className, _attrs.x, _attrs.y, _attrs.width, _attrs.height, _attrs.fColor, _attrs.image, _attrs.visible, _attrs.focus );
+			Text _text = new Text( _attrs.string, _attrs.type, _attrs.size, _attrs.hAlign, _attrs.vAlign, _attrs.id, _attrs.className, _attrs.x, _attrs.y, _attrs.width, _attrs.height, _attrs.fColor, _attrs.visible, _attrs.focus );
 			
 			_text.attachEvents( _events );
 			
@@ -2151,7 +2839,7 @@ jsXml2Processing = {
 				_attrs[ i ] = _tmp[ i ];
 			}
 			
-			Line _line = new Line( _attrs.weight, _attrs.id, _attrs.className, _attrs.x, _attrs.y, _attrs.width, _attrs.height, _attrs.fColor, _attrs.image, _attrs.visible, _attrs.focus );
+			Line _line = new Line( _attrs.x2, _attrs.y2, _attrs.weight, _attrs.id, _attrs.className, _attrs.x, _attrs.y, _attrs.fColor, _attrs.visible, _attrs.focus );
 			
 			_line.attachEvents( _events );
 			
@@ -2213,6 +2901,22 @@ jsXml2Processing = {
 			{
 				tag : "show",
 				type : "event"
+			}, 
+			{
+				tag : "focus",
+				type : "event"
+			}, 
+			{
+				tag : "blur",
+				type : "event"
+			}, 
+			{
+				tag : "keypressed",
+				type : "event"
+			}, 
+			{
+				tag : "keyreleased",
+				type : "event"
 			} ];
 		
 		return jsXml2Processing.getAttrs( _node, _keys );
@@ -2242,11 +2946,19 @@ jsXml2Processing = {
 				type : "event"
 			},
 			{
+				tag : "mousepressed",
+				type : "event"
+			},
+			{
 				tag : "mousereleased",
 				type : "event"
 			},
 			{
 				tag : "keypressed",
+				type : "event"
+			},
+			{
+				tag : "keyreleased",
 				type : "event"
 			}, 
 			{
@@ -2259,6 +2971,14 @@ jsXml2Processing = {
 			}, 
 			{
 				tag : "show",
+				type : "event"
+			}, 
+			{
+				tag : "focus",
+				type : "event"
+			}, 
+			{
+				tag : "blur",
 				type : "event"
 			} ];
 		
@@ -2326,6 +3046,14 @@ jsXml2Processing = {
 	parseAttrsLineObject : function( _node )
 	{
 		var _keys = [ 
+			{ 
+				tag : "x2",
+				type : "float"
+			},
+			{ 
+				tag : "y2",
+				type : "float"
+			},
 			{ 
 				tag : "weight",
 				type : "float"
@@ -2510,9 +3238,9 @@ jsXml2Processing = {
 				
 			if( _txt == "X" )
 			
-				return 2;
+				return Gradient.X_AXIS;
 				
-			return 1;
+			return Gradient.Y_AXIS;
 		},
 		
 		"gradientType" : function( _node )
@@ -2529,9 +3257,9 @@ jsXml2Processing = {
 				
 			if( _txt == "RADIAL" )
 			
-				return 2;
+				return Gradient.RADIAL;
 				
-			return 1;
+			return Gradient.LINEAR;
 		},
 		
 		"string" : function( _node )
@@ -2583,7 +3311,7 @@ jsXml2Processing = {
 			var _color = $.trim( $( _node ).text() );
 		
 			_color = _color.replace( /#/g, "" );
-				
+
 			if( _color.length != 6 && _color.length != 8 )
 			
 				return null;
@@ -2685,51 +3413,139 @@ jsXml2Processing = {
 	
 	util : {
 		
-		preloadImg : function( _src ) 
+		preloadImages : function( _arr, _func )
 		{
-	    	$('<img/>')[ 0 ].src = _src;
+			if( ! _arr || _arr.length <= 0 )
+			{
+				if( typeof( _func ) == "function" )
+				
+					_func();
+					
+				return;	
+			}
+			
+			if( $.inArray( _arr[ 0 ], jsXml2Processing.loadedImages ) != -1 )
+			{
+				_arr.splice( 0, 1 );
+				
+				jsXml2Processing.util.preloadImages( _arr, _func );
+				
+				return;
+			}
+			
+			jsXml2Processing.loadedImages.push( _arr[ 0 ] );
+			
+			var _code = '<img src="' + _arr[ 0 ] + '" />';
+			
+			$( _code ).load( function() {
+				
+				_arr.splice( 0, 1 );
+				
+				jsXml2Processing.util.preloadImages( _arr, _func );
+				
+			} ).error( function()
+			{
+				_arr.splice( 0, 1 );
+				
+				jsXml2Processing.util.preloadImages( _arr, _func );
+				
+			} );
+		},
+		
+		preloadFonts : function( _arr, _func )
+		{
+			if( ! _arr || _arr.length <= 0 )
+			{
+				if( typeof( _func ) == "function" )
+				
+					_func();
+					
+				return;	
+			}
+			
+			var _url = _arr[ 0 ][ "url" ];
+			var _type = _arr[ 0 ][ "type" ];
+			
+			if( typeof( jsXml2Processing.chargedFonts[ _type ] ) != "undefined" && jsXml2Processing.chargedFonts[ _type ] )
+			{
+				_arr.splice( 0, 1 );
+				
+				jsXml2Processing.util.preloadFonts( _arr, _func );
+				
+				return;
+			}
+			
+			$( "head" ).prepend( '<style type="text/css">' +
+									'@font-face {'+
+		    							"font-family: '" + _type + "';"+
+		    							"src: url('" + _url + "');"+
+										"}"+
+										"</style>" );
+			
+			$.get( _url, "", function( _font ) {
+				
+				jsXml2Processing.chargedFonts[ _arr[ 0 ].type ] = true;
+				
+				_arr.splice( 0, 1 );
+				
+				jsXml2Processing.util.preloadFonts( _arr, _func );
+				
+			}, "text" ).fail( function() 
+			{
+				jsXml2Processing.chargedFonts[ _arr[ 0 ].type ] = true;
+				
+				_arr.splice( 0, 1 );
+				
+				jsXml2Processing.util.preloadFonts( _arr, _func );
+			} );
 		},
 		
 		colorRollover : function( _obj, _changeBColor, _changeFColor, _changeTypeGradient )
 		{	
-			if( _changeFColor && _obj.fColor != null )
+			if( _changeFColor && _obj.getFColor() != null )
 			
-				_obj.fColor = jsXml2Processing.util.getRGBARollover( _obj.fColor );
+				_obj.setFColor( jsXml2Processing.util.getRGBARollover( _obj.getFColor() ) );
 			
-			if( _changeBColor && _obj.bColor != null )
+			if( _changeBColor && _obj.getBColor() != null )
 			
-				_obj.bColor = jsXml2Processing.util.getRGBARollover( _obj.bColor );
+				_obj.setBColor( jsXml2Processing.util.getRGBARollover( _obj.getBColor() ) );
 				
-			if( ( _changeTypeGradient || _changeBColor ) && _obj.bColor != null && _obj.gradient != null && _obj.gradient.gColor.size() > 0 )
+			if( ( _changeTypeGradient || _changeBColor ) && _obj.getBColor() != null && _obj.gradient != null && _obj.gradient.getGColor().size() > 0 )
 			{
 				ArrayList _newG = new ArrayList();
 				
 				if( _changeBColor )
 				{
-					for( int i = 0 ; i < _obj.gradient.gColor.size() ; i++ )
+					for( int i = 0 ; i < _obj.gradient.getGColor().size() ; i++ )
 				
-						_newG.add( jsXml2Processing.util.getRGBARollover( _obj.gradient.gColor.get( i ) ) );
+						_newG.add( jsXml2Processing.util.getRGBARollover( _obj.gradient.getGColor().get( i ) ) );
 				}
 				else
 				{
-					_newG = _obj.gradient.gColor;	
+					_newG = _obj.gradient.getGColor();	
 				}
 					
 				if( ! _changeTypeGradient )
-				
-					_obj.setGradient( new Gradient( _obj, _obj.bColor, _newG, _obj.gradient.axis, _obj.gradient.type ) );
-					
+				{
+					_obj.setGColor( _newG );
+				}	
 				else
 				{
-					int _type = _obj.gradient.LINEAR;
+					int _gType = Gradient.LINEAR;
 					
-					if( _obj.gradient.type == _obj.gradient.LINEAR )
+					if( _obj.getGType() == Gradient.LINEAR )
 					
-						_type = _obj.gradient.RADIAL;
+						_gType = Gradient.RADIAL;
 						
-					_obj.setGradient( new Gradient( _obj, _obj.bColor, _newG, _obj.gradient.axis, _type ) );
+					_obj.setGType( _gType );
+					_obj.setGColor( _newG );
 				}	
 			}				
+		},
+		
+		getColorFromHex : function( _hex )
+		{
+			return jsXml2Processing.getAttrOfType.color( $( '<color>' + _hex + '</color>' ) );
 		},
 		
 		getProcessingInstance : function()
@@ -2737,6 +3553,11 @@ jsXml2Processing = {
 			var _processingInstance = Processing.getInstanceById( jsXml2Processing.config.id );
 			
 			return _processingInstance;
+		},
+		
+		getFrameCount : function()
+		{
+			return frameCount;
 		},
 		
 		getRGBARollover : function( _color )
@@ -2752,27 +3573,110 @@ jsXml2Processing = {
 			return color( _rollR, _rollG, _rollB, alpha( _color ) );
 		},
 		
-		addXObjectToGrid : function( _id, _obj )
+		removeXObject : function( _obj )
+		{
+			if( ! _obj )
+			
+				return;
+			
+			if( typeof( _obj ) == "string" )
+			{
+				_obj = getXObject( _obj );
+			}
+			
+			if( ! _obj )
+			
+				return;
+				
+			Grid _grid = _obj.getGrid();
+			
+			if( ! _grid )
+			
+				return;
+				
+			_grid.removeXObject( _obj );
+		},
+		
+		addXObjectToGrid : function( _id, _obj, _callback )
 		{
 			if( ! _id || ! _obj )
 			
 				return;
+				
+			if( $.isArray( _obj ) )
+			{
+				for( var i = 0 ; i < _obj.length ; i++ )
+				{
+					if( i == ( _obj.length - 1 ) )
+					
+						jsXml2Processing.util.addSingleXObjectToGrid( _id, _obj[ i ], _callback );
+						
+					else
+					
+						jsXml2Processing.util.addSingleXObjectToGrid( _id, _obj[ i ] );
+				}
+			}
+			else
+			{	
+				jsXml2Processing.util.addSingleXObjectToGrid( _id, _obj, _callback );
+			}
+		},
+		
+		addSingleXObjectToGrid : function( _id, _obj, _callback )
+		{
+			if( ! _id || ! _obj )
 			
-			Grid _grid = getGrid( _id );
+				return;
+				
+			Grid _grid = null;
+			
+			if( typeof( _id ) == "string" )
+			
+				_grid = getGrid( _id );
+				
+			else 
+				
+				_grid = _id.getGrid();
 			
 			if( _grid == null )
 			
 				return;
 				
 			var _x2js = new X2JS(); 
-			
+				
 			var _xml = _x2js.json2xml( _obj );
 			
-			XObject _new = jsXml2Processing.parseObject( $( _xml ).children()[ 0 ] );
+			var _func = function() {
+				
+				XObject _new = jsXml2Processing.parseObject( $( _xml ).children()[ 0 ] );
+				
+				if( _new != null )
+				{
+					_grid.putXObject( _new );
+				}
+				
+				if( typeof( _callback ) == "function" )
+				
+					_callback();
+			};
 			
-			if( _new != null )
+			if( $( _xml ).find( "image" ).length > 0 )
 			{
-				_grid.putXObject( _new );
+				var _images = [];
+					
+				$( _xml ).find( "image" ).each( function( _key, _value ) {
+						
+				var _src = $.trim( $( _value ).text() );
+
+					_images.push( _src );
+							
+				} );
+					
+				jsXml2Processing.util.preloadImages( _images, _func );
+			}
+			else
+			{
+				_func();	
 			}
 		},
 		
@@ -2811,27 +3715,64 @@ jsXml2Processing = {
 			}
 		},
 		
-		fullPage : function( _idCanvas )
+		fullPage : function()
 		{
-			var _canvElem = document.getElementById( _idCanvas );
+			var _idCanvas = jsXml2Processing.config.id;
 			
-		    var _newWidth = document.documentElement.clientWidth;
-		    var _newHeight = document.documentElement.clientHeight;
+			$( window ).scrollTop( 0 );
+			$( window ).scrollLeft( 0 );
+			$( window ).css( { "overflow" : "hidden" } );
+			$( "body" ).scrollTop( 0 );
+			$( "body" ).scrollLeft( 0 );
+			$( "body" ).css( { "overflow" : "hidden" } );
+			
+			setTimeout( function() {
+				var _canvas = $( "#" + jsXml2Processing.config.id );
+				
+				var _width = $( window ).width();
+				var _height = $( window ).height();
+				
+				_canvas.attr( "width", _width );
+			    _canvas.attr( "height", _height );
+			    
+			    _canvas.css( { "width" : _width + "px", "height" : _height + "px", position : "fixed", top : "0px", left : "0px", "z-index" : "1000000" } );
+				
+				 size( _width, _height );
+			    
+			    sWidth = _width;
+			    sHeight = _height;
+			    
+			    $( window ).unbind( "resize", jsXml2Processing.util.fullPage );
+			    $( window ).bind( "resize", jsXml2Processing.util.fullPage );
+			    
+			    
+			}, 500 );
+		},
+		
+		changeWidthAndHeight : function( _width, _height )
+		{
+			var _canvas = $( "#" + jsXml2Processing.config.id );
+			
+			if( _canvas.length <= 0 )
+			
+				return;
+				
+			_canvas.attr( "width", _width );
+		    _canvas.attr( "height", _height );
 		    
-		    _canvElem.style.position = "fixed";
-		    _canvElem.setAttribute( "width", _newWidth );
-		    _canvElem.setAttribute( "height", _newHeight );
-		    _canvElem.style.top = 0 + "px";
-		    _canvElem.style.left = 0 + "px";
+		    _canvas.css( { "width" : _width + "px", "height" : _height + "px" } );
 		    
-		    size( _newWidth, _newHeight );
+		    size( _width, _height );
 		    
-		    sWidth = _newWidth;
-		    sHeight = _newHeight;
+		    sWidth = _width;
+		    sHeight = _height;
+		},
+		
+		focus : function()
+		{
+			var _canvas = $( "#" + jsXml2Processing.config.id );
+			
+			_canvas.focus();
 		}
 	}
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> c76aa481229e0bf3f2eb54d80a484178bc154e9f

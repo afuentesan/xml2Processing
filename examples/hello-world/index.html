@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />	
+	<meta name="description" content="xml2Processing" />
+	<meta name="author" content="Ángel Fuente" />
+	<meta name="keywords" content="xml2Processing" />
+	<meta charset="utf-8" />
+	<title>xml2Processing</title>
+	
+	<style type="text/css">
+		body, canvas
+		{
+			margin : 0;
+			padding : 0;
+			overflow : hidden;
+		}
+	</style>
+	
+	
+</head>
+<body>
+	<canvas data-processing-sources="lib/xml2Processing.pde" id="cnv"></canvas>
+	<script type="text/javascript" src="lib/jquery-1.9.1.min.js"></script>
+	<script type="text/javascript" src="lib/processing.min.js"></script>
+	<script type="text/javascript" src="lib/xml2json.min.js"></script>
+	
+	<script type="text/javascript">
+		var configXml2Processing = {
+				
+			url : "views/index.xml",
+			id : "cnv"
+			
+		};
+	</script>
+	
+</body>
+</html>	

@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<xml2Processing>
+	<config>
+		<width>500</width>
+		<height>300</height>
+	</config>
+	<grids>
+		<grid>
+			<attributes>
+				<id>gMain</id>
+				<bColor>#000000ff</bColor>
+			</attributes>
+			
+			<text>
+				<attributes>
+					<id>txtEx1</id>
+					<x>17</x>
+					<y>44</y>
+					<width>83</width>	
+					<height>56</height>
+					<fColor>#ffffffff</fColor>
+					<type>courier</type>
+					<size>15</size>
+					<string>Hello world!</string>
+					<hAlign>left</hAlign>
+					<vAlign>top</vAlign>
+				</attributes>
+			</text>
+		</grid>
+	</grids>
+</xml2Processing>

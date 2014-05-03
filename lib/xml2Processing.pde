@@ -2830,4 +2830,8 @@ jsXml2Processing = {
 		    sHeight = _newHeight;
 		}
 	}
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> c76aa481229e0bf3f2eb54d80a484178bc154e9f
